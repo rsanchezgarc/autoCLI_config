@@ -580,6 +580,7 @@ class TestInjectDocsDecorator:
 
     def test_basic_doc_injection(self):
         """Test basic documentation injection."""
+        import inspect
         config = SimpleConfig()
 
         @inject_docs_from_config_params
@@ -595,14 +596,16 @@ class TestInjectDocsDecorator:
             return name, count
 
         expected_doc = """
-            Test function.
+        Test function.
 
-            Args:
-                name: The name of the item
-                count: The number of items
-            """
+        Args:
+            name: The name of the item
+            count: The number of items
+        """
 
-        assert func.__doc__.strip() == expected_doc.strip()
+        # Use inspect.cleandoc to normalize both docstrings for comparison
+        # This handles Python version differences in docstring indentation handling
+        assert inspect.cleandoc(func.__doc__) == inspect.cleandoc(expected_doc)
 
     def test_partial_doc_injection(self):
         """Test that only parameters with docs are replaced."""
