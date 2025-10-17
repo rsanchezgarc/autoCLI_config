@@ -35,7 +35,7 @@ Example:
     >>>     print(f"Training with lr={learning_rate}, batch_size={batch_size}")
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "Ruben Sanchez-Garcia"
 __email__ = "rsanchezgarcia@faculty.ie.edu"
 
