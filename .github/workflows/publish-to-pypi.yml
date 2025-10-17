@@ -7,6 +7,8 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create GitHub releases
 
     steps:
       - name: Checkout code
@@ -41,8 +43,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           body: |
-            Package published to PyPI: https://pypi.org/project/config-docs-system/${{ github.event.release.tag_name }}/
+            Package published to PyPI: https://pypi.org/project/autoCLI-config/${{ github.event.release.tag_name }}/
 
-            Install with: `pip install config-docs-system==${{ github.event.release.tag_name }}`
+            Install with: `pip install autoCLI-config==${{ github.event.release.tag_name }}`
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
