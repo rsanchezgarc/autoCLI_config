@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autoCLI_config"
+dynamic = ["version"]
+description = "Automatic configuration management and documentation generation system"
+readme = "README.md"
+authors = [
+    {name = "Ruben Sanchez-Garcia", email = "rsanchezgarcia@faculty.ie.edu"}
+]
+license = {text = "GPL-3.0-or-later"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+keywords = ["configuration", "cli", "documentation", "argparse", "dataclass"]
+requires-python = ">=3.7"
+dependencies = [
+    "argParseFromDoc>=0.0.8",
+    "PyYAML>=5.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/rsanchezgarc/autoCLI_config"
+"Bug Reports" = "https://github.com/rsanchezgarc/autoCLI_config/issues"
+Source = "https://github.com/rsanchezgarc/autoCLI_config"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=autoCLI_config --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["autoCLI_config"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "autoCLI_config.__version__"}
