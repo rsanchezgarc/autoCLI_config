@@ -300,6 +300,10 @@ CLI help text (via argParseFromDoc)
 - `export_config_to_yaml(config, filepath)`: Export config to YAML
 - `check_type_match(expected_type, actual_value)`: Type checking utility
 
+
+## Performance overhead
+Using the decorators adds a non-negligible overhead to each function call, hence we only recommend using them in class builders and outer-loop functions.
+
 ## Examples
 
 See the `examples/` directory for complete working examples:
