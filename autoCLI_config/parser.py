@@ -44,7 +44,9 @@ class ConfigOverrideSystem:
                     description = param_docs.get(field.name, "")
                     desc_str = f"  # {description}" if description else ""
 
-                    print(f"{indent_str}  {field.name}: {field_value} ({type(field_value).__name__}){desc_str}")
+                    # Display Path values as plain strings for readability
+                    display_value = str(field_value) if isinstance(field_value, Path) else field_value
+                    print(f"{indent_str}  {field.name}: {display_value} ({type(field_value).__name__}){desc_str}")
         else:
             print(f"{indent_str}{name}: {config} ({type(config).__name__})")
 
@@ -62,7 +64,9 @@ class ConfigOverrideSystem:
                     paths.extend(ConfigOverrideSystem.get_all_config_paths(field_value, field_path))
                 else:
                     # Format as key=value (type) for display
-                    paths.append(f"{field_path}={repr(field_value)} ({type(field_value).__name__})")
+                    # Display Path values as plain strings for readability
+                    display_value = str(field_value) if isinstance(field_value, Path) else repr(field_value)
+                    paths.append(f"{field_path}={display_value} ({type(field_value).__name__})")
 
         return paths
 

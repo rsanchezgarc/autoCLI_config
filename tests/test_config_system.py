@@ -285,6 +285,36 @@ class TestConfigOverrideSystem:
         assert any("sub.value" in p for p in paths)
         assert any("sub.name" in p for p in paths)
 
+    def test_print_config_path_display(self, capsys):
+        """Test that Path values are displayed as plain strings, not PosixPath(...) or WindowsPath(...)."""
+        config = ConfigExample()
+        ConfigOverrideSystem.print_config(config)
+
+        captured = capsys.readouterr()
+
+        # Path should be displayed as plain string
+        assert "/tmp/output" in captured.out
+        # Should NOT contain the full Path representation with PosixPath() or WindowsPath()
+        assert "PosixPath('/tmp/output')" not in captured.out
+        assert "WindowsPath" not in captured.out or "WindowsPath('/tmp/output')" not in captured.out
+        # Type indicator should still show it's a Path type
+        assert "(PosixPath)" in captured.out or "(WindowsPath)" in captured.out
+
+    def test_get_all_config_paths_path_display(self):
+        """Test that get_all_config_paths displays Path values as plain strings."""
+        config = ConfigExample()
+        paths = ConfigOverrideSystem.get_all_config_paths(config)
+
+        # Find the path entry for output_path
+        output_path_entry = [p for p in paths if "output_path=" in p][0]
+
+        # Should show plain string path
+        assert "output_path=/tmp/output" in output_path_entry
+        # Should NOT show PosixPath(...) representation
+        assert "PosixPath('/tmp/output')" not in output_path_entry
+        # Should still indicate the type
+        assert "(PosixPath)" in output_path_entry or "(WindowsPath)" in output_path_entry
+
 
 class TestHelperFunctions:
     """Test helper functions."""
