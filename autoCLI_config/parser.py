@@ -546,6 +546,13 @@ class ConfigArgumentParser(AutoArgumentParser):
         # ensuring direct command-line arguments have highest precedence.
         direct_overrides = self._apply_direct_arg_overrides(parsed_args, _original_sys_argv)
 
+        # Handle --export-config after all overrides have been applied
+        if hasattr(parsed_args, 'export_config') and parsed_args.export_config:
+            export_path = parsed_args.export_config
+            self.print(f"Exporting config (with all overrides) to {export_path}")
+            export_config_to_yaml(self.config_obj, export_path)
+            print(f"Configuration exported to {export_path}")
+
         # Remove config arguments from parsed_args so they don't interfere with downstream logic
         # that might not expect them (e.g., if train_model tried to use parsed_args directly for 'config').
         config_args = config_args_list + direct_overrides

@@ -477,8 +477,23 @@ class TestConfigArgumentParser:
         parser = ConfigArgumentParser(config_obj=config, verbose=False)
         export_file = tmp_path / "export.yaml"
 
-        # Note: This test might need adjustment based on actual implementation
-        # The export functionality may need to be triggered differently
+        # Parse args with export-config flag
+        args, config_args = parser.parse_args(['--export-config', str(export_file)])
+
+        # Verify the file was created
+        assert export_file.exists(), "Export file should have been created"
+
+        # Load and verify the exported config
+        import yaml
+        with open(export_file, 'r') as f:
+            exported_config = yaml.safe_load(f)
+
+        # Verify config structure matches ConfigExample
+        assert 'learning_rate' in exported_config
+        assert 'batch_size' in exported_config
+        assert 'output_path' in exported_config
+        assert exported_config['learning_rate'] == config.learning_rate
+        assert exported_config['batch_size'] == config.batch_size
 
 
 class TestEnumHandling:
