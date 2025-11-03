@@ -603,7 +603,7 @@ class ConfigArgumentParser(AutoArgumentParser):
                     file_overrides = ConfigOverrideSystem.load_yaml_config(config_item)
                     config_overrides_from_cli = merge_dicts(config_overrides_from_cli, file_overrides)
                 else:
-                    print(f"Warning: Config file {config_item} not found for conflict check.")
+                    raise FileNotFoundError(f"Config file '{config_item}' not found")
 
         override_paths_from_config_arg = set(self._flatten_dict_keys(config_overrides_from_cli))
 
@@ -735,7 +735,7 @@ class ConfigArgumentParser(AutoArgumentParser):
                         overrides = merge_dicts(overrides, file_overrides)
                         self.print(f"Loaded config from {config_item}")
                     else:
-                        print(f"Warning: Config file {config_item} not found. Skipping.")
+                        raise FileNotFoundError(f"Config file '{config_item}' not found")
                 else:
                     # It's a key=value assignment
                     try:
