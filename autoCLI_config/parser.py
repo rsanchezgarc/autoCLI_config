@@ -235,11 +235,15 @@ class ConfigOverrideSystem:
 
                         # Handle basic type conversion (int, float, str, bool)
                         # This ensures that values parsed as strings like '1e-3' are converted to their proper types
-                        if field_type and not isinstance(value, field_type):
-                            # Convert to the target type
-                            if field_type in (int, float, str, bool) and not isinstance(value, field_type):
+                        # Extract origin type to handle subscripted generics (e.g., tuple[float, ...])
+                        base_field_type = get_origin(field_type) if get_origin(field_type) is not None else field_type
+                        if field_type and base_field_type in (int, float, str, bool, tuple, list):
+                            # Only perform isinstance check with non-subscripted types
+                            if base_field_type in (int, float, str, bool):
                                 try:
-                                    value = field_type(value)
+                                    # Only convert if value is not already the correct type
+                                    if not isinstance(value, base_field_type):
+                                        value = base_field_type(value)
                                 except (ValueError, TypeError):
                                     pass  # Keep original value if conversion fails
 
@@ -743,3 +747,4 @@ class ConfigArgumentParser(AutoArgumentParser):
             if overrides:
                 self.print("\nApplying config overrides from --config argument:")
                 ConfigOverrideSystem.apply_overrides(self.config_obj, overrides, verbose=self.verbose)
+
