@@ -18,7 +18,8 @@ class CONFIG_PARAM:
             validator: Optional[Callable] = None,
             transform: Optional[Callable] = None,
             doc: Optional[str] = None,
-            config: Optional[Any] = None
+            config: Optional[Any] = None,
+            is_required_arg_for_cli_fun: Optional[Callable[[], bool]] = None
     ):
         """
         Initialize a CONFIG_PARAM descriptor.
@@ -28,12 +29,17 @@ class CONFIG_PARAM:
             transform: Optional function to transform parameter values
             doc: Optional documentation string (auto-populated from config's PARAM_DOCS)
             config: Optional specific config object to bind to (overrides decorator's default)
+            is_required_arg_for_cli_fun: Optional callable that returns True if this parameter
+                should be marked as required for argparse. Evaluated at parse time to allow
+                checking sys.argv for --config presence. Use this for parameters that are
+                required but can be provided via --config instead of CLI arguments.
         """
         self.validator = validator
         self.transform = transform
         self.doc = doc
         self._config = config
         self._name = None
+        self.is_required_arg_for_cli_fun = is_required_arg_for_cli_fun
 
     def bind(self, config: Any, name: str):
         """Bind this parameter to a specific config attribute."""

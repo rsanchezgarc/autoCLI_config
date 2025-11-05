@@ -417,9 +417,26 @@ class ConfigArgumentParser(AutoArgumentParser):
                         f"Warning: Could not find config path for parameter '{argname}' (looking for '{config_attr_name_for_mapping}') in the default config object.")
 
         # Now call the parent method to add standard arguments
-        return super().add_args_from_function(
+        result = super().add_args_from_function(
             callable, new_group_name, args_to_ignore, args_to_include, args_optional
         )
+
+        # Check for CONFIG_PARAMs with is_required_arg_for_cli_fun and set required flag
+        for argname, config_param in argname_to_configname.items():
+            if hasattr(config_param, 'is_required_arg_for_cli_fun') and config_param.is_required_arg_for_cli_fun:
+                # Find the action for this argument and set it as required
+                for action in self._actions:
+                    if action.dest == argname:
+                        # Call the callable to determine if it should be required
+                        try:
+                            if config_param.is_required_arg_for_cli_fun():
+                                action.required = True
+                        except Exception as e:
+                            # If the callable raises an exception, log it but don't fail
+                            print(f"Warning: is_required_arg_for_cli_fun for '{argname}' raised an exception: {e}")
+                        break
+
+        return result
 
     def _find_config_path(self, root_config: Any, target_config_obj: Any, attr_name: str) -> Optional[str]:
         """
