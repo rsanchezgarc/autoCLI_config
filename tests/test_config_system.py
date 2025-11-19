@@ -578,5 +578,138 @@ class TestIntegration:
         assert exported["batch_size"] == 512
 
 
+class TestDictionarySupport:
+    """Test dictionary value parsing and config handling."""
+
+    def test_parse_value_dict_basic(self):
+        """Test parsing simple dictionary values."""
+        result = ConfigOverrideSystem.parse_value('{"key": "value", "key2": 123}')
+        assert isinstance(result, dict)
+        assert result == {"key": "value", "key2": 123}
+
+    def test_parse_value_dict_with_python_booleans(self):
+        """Test parsing dictionaries with Python boolean literals (True/False)."""
+        result = ConfigOverrideSystem.parse_value('{"enabled": True, "disabled": False}')
+        assert isinstance(result, dict)
+        assert result == {"enabled": True, "disabled": False}
+
+    def test_parse_value_dict_with_none(self):
+        """Test parsing dictionaries with None values."""
+        result = ConfigOverrideSystem.parse_value('{"value": None, "other": 123}')
+        assert isinstance(result, dict)
+        assert result == {"value": None, "other": 123}
+
+    def test_parse_value_dict_nested(self):
+        """Test parsing nested dictionary values."""
+        result = ConfigOverrideSystem.parse_value('{"outer": {"inner": "value"}}')
+        assert isinstance(result, dict)
+        assert result == {"outer": {"inner": "value"}}
+
+    def test_parse_value_dict_with_lists(self):
+        """Test parsing dictionaries containing lists."""
+        result = ConfigOverrideSystem.parse_value('{"items": [1, 2, 3], "name": "test"}')
+        assert isinstance(result, dict)
+        assert result == {"items": [1, 2, 3], "name": "test"}
+
+    def test_parse_value_dict_invalid_syntax(self):
+        """Test that invalid dictionary syntax raises helpful error."""
+        with pytest.raises(ValueError, match="Invalid dictionary syntax"):
+            ConfigOverrideSystem.parse_value('{"key": invalid}')
+
+    def test_parse_config_assignments_with_dict(self):
+        """Test parsing config assignments with dictionary values."""
+        assignments = ['weights={"layer1": 0.5, "layer2": 1.0}']
+        result = ConfigOverrideSystem.parse_config_assignments(assignments)
+
+        assert "weights" in result
+        assert isinstance(result["weights"], dict)
+        assert result["weights"] == {"layer1": 0.5, "layer2": 1.0}
+
+    def test_parse_config_assignments_nested_dict(self):
+        """Test parsing nested config assignments with dictionary values."""
+        assignments = ['model.perceptual_weights={"conv1": 0.3, "conv2": 0.7}']
+        result = ConfigOverrideSystem.parse_config_assignments(assignments)
+
+        assert result == {"model": {"perceptual_weights": {"conv1": 0.3, "conv2": 0.7}}}
+
+
+@dataclass
+class ConfigWithDict:
+    """Test config with dictionary field."""
+    weights: Optional[dict] = None
+    layer_config: dict = field(default_factory=dict)
+
+
+class TestDictionaryConfigIntegration:
+    """Test integration of dictionary values with config system."""
+
+    def test_apply_overrides_dict(self):
+        """Test applying dictionary overrides to config."""
+        config = ConfigWithDict()
+        overrides = {"weights": {"layer1": 0.5, "layer2": 1.0}}
+
+        ConfigOverrideSystem.apply_overrides(config, overrides, verbose=False)
+
+        assert config.weights == {"layer1": 0.5, "layer2": 1.0}
+
+    def test_apply_overrides_dict_optional(self):
+        """Test applying dictionary to optional dict field."""
+        config = ConfigWithDict()
+        assert config.weights is None
+
+        overrides = {"weights": {"a": 1, "b": 2}}
+        ConfigOverrideSystem.apply_overrides(config, overrides, verbose=False)
+
+        assert config.weights == {"a": 1, "b": 2}
+
+    def test_config_parser_dict_override(self):
+        """Test ConfigArgumentParser with dictionary override."""
+        config = ConfigWithDict()
+        parser = ConfigArgumentParser(config_obj=config, verbose=False)
+
+        args, config_args = parser.parse_args([
+            "--config",
+            'weights={"layer1": 0.3, "layer2": 0.7}'
+        ])
+
+        assert config.weights == {"layer1": 0.3, "layer2": 0.7}
+
+    def test_config_parser_dict_from_yaml(self, tmp_path):
+        """Test loading dictionary values from YAML file."""
+        yaml_content = {
+            "weights": {"layer1": 0.4, "layer2": 0.6},
+            "layer_config": {"units": 128, "dropout": 0.2}
+        }
+        yaml_file = tmp_path / "dict_config.yaml"
+        with open(yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        config = ConfigWithDict()
+        parser = ConfigArgumentParser(config_obj=config, verbose=False)
+
+        args, config_args = parser.parse_args(["--config", str(yaml_file)])
+
+        assert config.weights == {"layer1": 0.4, "layer2": 0.6}
+        assert config.layer_config == {"units": 128, "dropout": 0.2}
+
+    def test_export_config_with_dict(self, tmp_path):
+        """Test exporting config with dictionary values to YAML."""
+        config = ConfigWithDict(
+            weights={"layer1": 0.5, "layer2": 1.0},
+            layer_config={"units": 64}
+        )
+
+        yaml_file = tmp_path / "exported_dict.yaml"
+        export_config_to_yaml(config, str(yaml_file))
+
+        assert yaml_file.exists()
+
+        with open(yaml_file, "r") as f:
+            loaded = yaml.safe_load(f)
+
+        assert loaded["weights"] == {"layer1": 0.5, "layer2": 1.0}
+        assert loaded["layer_config"] == {"units": 64}
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -357,6 +357,53 @@ class TestCheckTypeMatch:
         except ImportError:
             pytest.skip("Literal type not available")
 
+    def test_dict_types(self):
+        """Test dict type matching."""
+        from typing import Dict
+
+        # Basic dict type
+        assert check_type_match(dict, {"key": "value"}) is True
+        assert check_type_match(dict, {"a": 1, "b": 2}) is True
+        assert check_type_match(dict, [1, 2, 3]) is False
+        assert check_type_match(dict, "not a dict") is False
+
+        # Unparameterized Dict (any dict is fine)
+        assert check_type_match(Dict, {"key": "value"}) is True
+        assert check_type_match(Dict, {}) is True
+
+    def test_dict_parameterized_types(self):
+        """Test parameterized Dict type matching."""
+        from typing import Dict
+
+        # Dict[str, int]
+        assert check_type_match(Dict[str, int], {"a": 1, "b": 2}) is True
+        assert check_type_match(Dict[str, int], {"a": 1, "b": "2"}) is False  # Wrong value type
+        assert check_type_match(Dict[str, int], {1: 1, 2: 2}) is False  # Wrong key type
+
+        # Dict[str, str]
+        assert check_type_match(Dict[str, str], {"key": "value"}) is True
+        assert check_type_match(Dict[str, str], {"key": 123}) is False
+
+        # Dict[int, float]
+        assert check_type_match(Dict[int, float], {1: 1.5, 2: 2.5}) is True
+        assert check_type_match(Dict[int, float], {1: 1, 2: 2}) is False  # int values, not float
+
+    def test_dict_optional(self):
+        """Test Optional[dict] type matching."""
+        assert check_type_match(Optional[dict], {"key": "value"}) is True
+        assert check_type_match(Optional[dict], None) is True
+        assert check_type_match(Optional[dict], []) is False
+
+    def test_dict_nested(self):
+        """Test nested dict type matching."""
+        from typing import Dict
+
+        # Nested dictionaries
+        nested_dict = {"outer": {"inner": "value"}}
+        assert check_type_match(dict, nested_dict) is True
+        # Note: Type checking for nested Dict[str, Dict[str, str]] is not currently implemented
+        # but basic dict matching works
+
 
 class TestInjectDefaultsDecorator:
     """Test inject_defaults_from_config decorator."""

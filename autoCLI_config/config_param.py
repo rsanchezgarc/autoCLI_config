@@ -184,6 +184,26 @@ def check_type_match(expected_type: Any, actual_value: Any) -> bool:
             return all(check_type_match(expected_arg, actual_item)
                        for expected_arg, actual_item in zip(expected_args, actual_value))
 
+    # Special handling for dictionaries
+    if expected_origin is dict or expected_type is dict:
+        if not isinstance(actual_value, dict):
+            return False
+
+        # Get the expected argument types (Dict[K, V])
+        expected_args = get_args(expected_type)
+
+        # If no arguments specified (just dict or Dict), any dict is fine
+        if not expected_args:
+            return True
+
+        # Check key and value types if specified (Dict[key_type, value_type])
+        if len(expected_args) == 2:
+            key_type, value_type = expected_args
+            return (all(check_type_match(key_type, k) for k in actual_value.keys()) and
+                    all(check_type_match(value_type, v) for v in actual_value.values()))
+
+        return True
+
     # For other generic types, just check the origin type but treat list/tuple as equivalent
     if expected_origin in (list, tuple):
         return isinstance(actual_value, (list, tuple))

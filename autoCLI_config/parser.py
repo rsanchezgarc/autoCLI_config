@@ -97,6 +97,21 @@ class ConfigOverrideSystem:
                 items = value_str[1:-1].split(',')
                 return [ConfigOverrideSystem.parse_value(item.strip()) for item in items if item.strip()]
 
+        # Handle dictionaries (JSON parsing)
+        if value_str.startswith('{') and value_str.endswith('}'):
+            try:
+                # Convert Python boolean literals to JSON format for better UX
+                # This allows users to write {"key": True} instead of {"key": true}
+                json_str = value_str.replace('True', 'true').replace('False', 'false').replace('None', 'null')
+                return json.loads(json_str)
+            except json.JSONDecodeError as e:
+                # Provide helpful error message
+                raise ValueError(
+                    f"Invalid dictionary syntax: '{value_str}'. "
+                    f'Expected JSON format, e.g., {{"key": "value", "key2": 123}}. '
+                    f"Error: {e}"
+                )
+
         # Handle paths
         if '/' in value_str or '\\' in value_str:
             return Path(value_str)
