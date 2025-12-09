@@ -711,5 +711,287 @@ class TestDictionaryConfigIntegration:
         assert loaded["layer_config"] == {"units": 64}
 
 
+class TestYAMLAndKeyValueCombinations:
+    """Test combinations of YAML files and key=value overrides with priority rules."""
+
+    def test_update_config_from_configstrings_yaml_only(self, tmp_path):
+        """Test update_config_from_configstrings with only YAML file."""
+        yaml_content = {
+            "learning_rate": 0.01,
+            "batch_size": 64,
+            "sub": {"value": 20, "name": "yaml_config"}
+        }
+        yaml_file = tmp_path / "test_config.yaml"
+        with open(yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        config = ConfigExample()
+        ConfigOverrideSystem.update_config_from_configstrings(
+            config, [str(yaml_file)], verbose=False
+        )
+
+        assert config.learning_rate == 0.01
+        assert config.batch_size == 64
+        assert config.sub.value == 20
+        assert config.sub.name == "yaml_config"
+
+    def test_update_config_from_configstrings_keyval_only(self):
+        """Test update_config_from_configstrings with only key=value pairs."""
+        config = ConfigExample()
+        ConfigOverrideSystem.update_config_from_configstrings(
+            config,
+            ["learning_rate=0.005", "batch_size=128", "sub.value=30"],
+            verbose=False
+        )
+
+        assert config.learning_rate == 0.005
+        assert config.batch_size == 128
+        assert config.sub.value == 30
+
+    def test_update_config_from_configstrings_yaml_then_keyval(self, tmp_path):
+        """Test YAML file followed by key=value override.
+
+        Priority: key=value should override YAML values.
+        """
+        yaml_content = {
+            "learning_rate": 0.01,
+            "batch_size": 64,
+            "sub": {"value": 20, "name": "yaml_config"}
+        }
+        yaml_file = tmp_path / "test_config.yaml"
+        with open(yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        config = ConfigExample()
+        # YAML sets learning_rate=0.01, then key=value overrides to 0.005
+        ConfigOverrideSystem.update_config_from_configstrings(
+            config,
+            [str(yaml_file), "learning_rate=0.005", "sub.value=99"],
+            verbose=False
+        )
+
+        # Key=value overrides should win
+        assert config.learning_rate == 0.005  # Overridden by key=value
+        assert config.batch_size == 64  # From YAML, not overridden
+        assert config.sub.value == 99  # Overridden by key=value
+        assert config.sub.name == "yaml_config"  # From YAML, not overridden
+
+    def test_update_config_from_configstrings_keyval_then_yaml(self, tmp_path):
+        """Test key=value followed by YAML file.
+
+        Priority: YAML should override earlier key=value pairs.
+        """
+        yaml_content = {
+            "learning_rate": 0.01,
+            "batch_size": 64,
+        }
+        yaml_file = tmp_path / "test_config.yaml"
+        with open(yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        config = ConfigExample()
+        # key=value sets learning_rate=0.005, then YAML overrides to 0.01
+        ConfigOverrideSystem.update_config_from_configstrings(
+            config,
+            ["learning_rate=0.005", "sub.value=50", str(yaml_file)],
+            verbose=False
+        )
+
+        # YAML should override the key=value for learning_rate
+        assert config.learning_rate == 0.01  # Overridden by YAML
+        assert config.batch_size == 64  # From YAML
+        assert config.sub.value == 50  # From key=value, not in YAML
+
+    def test_update_config_from_configstrings_multiple_yamls_and_keyvals(self, tmp_path):
+        """Test multiple YAML files and key=value pairs.
+
+        Priority: Later values override earlier ones.
+        """
+        yaml1_content = {
+            "learning_rate": 0.001,
+            "batch_size": 32,
+            "sub": {"value": 10}
+        }
+        yaml1_file = tmp_path / "config1.yaml"
+        with open(yaml1_file, "w") as f:
+            yaml.dump(yaml1_content, f)
+
+        yaml2_content = {
+            "learning_rate": 0.01,  # Override from yaml1
+            "sub": {"name": "yaml2_config"}  # Add new field
+        }
+        yaml2_file = tmp_path / "config2.yaml"
+        with open(yaml2_file, "w") as f:
+            yaml.dump(yaml2_content, f)
+
+        config = ConfigExample()
+        ConfigOverrideSystem.update_config_from_configstrings(
+            config,
+            [
+                str(yaml1_file),           # learning_rate=0.001, batch_size=32, sub.value=10
+                "batch_size=64",           # Override batch_size to 64
+                str(yaml2_file),           # Override learning_rate to 0.01, set sub.name
+                "sub.value=100"            # Override sub.value to 100
+            ],
+            verbose=False
+        )
+
+        # Final values should follow the order of application
+        assert config.learning_rate == 0.01  # From yaml2 (overrode yaml1)
+        assert config.batch_size == 64  # From key=value (overrode yaml1, before yaml2)
+        assert config.sub.value == 100  # From final key=value
+        assert config.sub.name == "yaml2_config"  # From yaml2
+
+    def test_config_parser_yaml_and_keyval_combination(self, tmp_path):
+        """Test ConfigArgumentParser with mixed YAML and key=value in --config."""
+        yaml_content = {
+            "learning_rate": 0.02,
+            "batch_size": 128,
+            "sub": {"value": 25}
+        }
+        yaml_file = tmp_path / "parser_test.yaml"
+        with open(yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        config = ConfigExample()
+        parser = ConfigArgumentParser(config_obj=config, verbose=False)
+
+        # Pass both YAML and key=value to --config
+        args, config_args = parser.parse_args([
+            "--config",
+            str(yaml_file),
+            "learning_rate=0.007",  # Should override YAML value
+            "sub.name=final_name"
+        ])
+
+        assert config.learning_rate == 0.007  # Key=value overrides YAML
+        assert config.batch_size == 128  # From YAML
+        assert config.sub.value == 25  # From YAML
+        assert config.sub.name == "final_name"  # From key=value
+
+    def test_config_parser_keyval_then_yaml(self, tmp_path):
+        """Test ConfigArgumentParser with key=value before YAML.
+
+        Priority: YAML should override earlier key=value.
+        """
+        yaml_content = {
+            "learning_rate": 0.015,
+            "batch_size": 256
+        }
+        yaml_file = tmp_path / "priority_test.yaml"
+        with open(yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        config = ConfigExample()
+        parser = ConfigArgumentParser(config_obj=config, verbose=False)
+
+        args, config_args = parser.parse_args([
+            "--config",
+            "learning_rate=0.001",  # This should be overridden by YAML
+            str(yaml_file),
+            "sub.value=77"  # This stays
+        ])
+
+        assert config.learning_rate == 0.015  # YAML overrides earlier key=value
+        assert config.batch_size == 256  # From YAML
+        assert config.sub.value == 77  # From key=value after YAML
+
+    def test_yaml_with_dict_values_and_keyval_override(self, tmp_path):
+        """Test YAML with dictionary values combined with key=value overrides."""
+        yaml_content = {
+            "weights": {"layer1": 0.3, "layer2": 0.7},
+            "layer_config": {"units": 64, "dropout": 0.1}
+        }
+        yaml_file = tmp_path / "dict_test.yaml"
+        with open(yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        config = ConfigWithDict()
+
+        # Test with update_config_from_configstrings
+        ConfigOverrideSystem.update_config_from_configstrings(
+            config,
+            [
+                str(yaml_file),
+                'weights={"layer1": 0.5, "layer2": 0.5}',  # Override entire dict
+            ],
+            verbose=False
+        )
+
+        assert config.weights == {"layer1": 0.5, "layer2": 0.5}  # Overridden
+        assert config.layer_config == {"units": 64, "dropout": 0.1}  # From YAML
+
+    def test_nonexistent_yaml_file_raises_error(self):
+        """Test that nonexistent YAML file raises FileNotFoundError."""
+        config = ConfigExample()
+
+        with pytest.raises(FileNotFoundError, match="Config file .* not found"):
+            ConfigOverrideSystem.update_config_from_configstrings(
+                config,
+                ["/nonexistent/path/to/config.yaml"],
+                verbose=False
+            )
+
+    def test_mixed_yml_and_yaml_extensions(self, tmp_path):
+        """Test that both .yml and .yaml extensions work."""
+        yml_content = {"learning_rate": 0.03}
+        yml_file = tmp_path / "config.yml"
+        with open(yml_file, "w") as f:
+            yaml.dump(yml_content, f)
+
+        yaml_content = {"batch_size": 512}
+        yaml_file = tmp_path / "config.yaml"
+        with open(yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        config = ConfigExample()
+        ConfigOverrideSystem.update_config_from_configstrings(
+            config,
+            [str(yml_file), str(yaml_file)],
+            verbose=False
+        )
+
+        assert config.learning_rate == 0.03  # From .yml file
+        assert config.batch_size == 512  # From .yaml file
+
+    def test_priority_order_comprehensive(self, tmp_path):
+        """Comprehensive test of priority order with multiple sources.
+
+        Order: YAML1 -> key=val1 -> YAML2 -> key=val2
+        Each later source should override conflicting values from earlier sources.
+        """
+        yaml1 = tmp_path / "base.yaml"
+        with open(yaml1, "w") as f:
+            yaml.dump({
+                "learning_rate": 0.001,
+                "batch_size": 32,
+                "sub": {"value": 1, "name": "base"}
+            }, f)
+
+        yaml2 = tmp_path / "override.yaml"
+        with open(yaml2, "w") as f:
+            yaml.dump({
+                "learning_rate": 0.01,  # Override from yaml1
+                "sub": {"value": 2}  # Override sub.value
+            }, f)
+
+        config = ConfigExample()
+        ConfigOverrideSystem.update_config_from_configstrings(
+            config,
+            [
+                str(yaml1),           # Step 1: lr=0.001, bs=32, sub.value=1, sub.name="base"
+                "batch_size=64",      # Step 2: override bs to 64
+                str(yaml2),           # Step 3: override lr to 0.01, sub.value to 2
+                "sub.name=final"      # Step 4: override sub.name to "final"
+            ],
+            verbose=False
+        )
+
+        assert config.learning_rate == 0.01  # From yaml2 (step 3)
+        assert config.batch_size == 64  # From key=val (step 2), not overridden by yaml2
+        assert config.sub.value == 2  # From yaml2 (step 3)
+        assert config.sub.name == "final"  # From final key=val (step 4)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

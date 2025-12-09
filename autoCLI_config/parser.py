@@ -331,12 +331,31 @@ class ConfigOverrideSystem:
 
         Args:
             config: The config object to update.
-            source_configstrings: The list of strings of the form xxx.xxx=V to read values from.
+            source_configstrings: The list of strings of the form xxx.xxx=V or YAML files to read values from.
             drop_paths: A list of dot-separated paths to not update from the source.
             verbose: If True, prints which values are being set.
         """
         # Convert the source dataclass to a dictionary of overrides
-        overrides = ConfigOverrideSystem.parse_config_assignments(source_configstrings)
+        overrides = {}
+
+        for config_item in source_configstrings:
+            # Check if it's a YAML file
+            if config_item.endswith('.yaml') or config_item.endswith('.yml'):
+                from pathlib import Path
+                config_file_path = Path(config_item)
+                if config_file_path.exists():
+                    file_overrides = ConfigOverrideSystem.load_yaml_config(config_item)
+                    # Merge file overrides
+                    overrides = merge_dicts(overrides, file_overrides)
+                    if verbose:
+                        print(f"Loaded config from {config_item}")
+                else:
+                    raise FileNotFoundError(f"Config file '{config_item}' not found")
+            else:
+                # It's a key=value assignment
+                assignment_overrides = ConfigOverrideSystem.parse_config_assignments([config_item])
+                overrides = merge_dicts(overrides, assignment_overrides)
+
         ConfigOverrideSystem._drop_paths_from_dict(overrides, drop_paths, verbose)
         # Apply the dictionary of overrides to the target config object
         ConfigOverrideSystem.apply_overrides(config, overrides, verbose=verbose)
