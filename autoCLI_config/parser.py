@@ -10,6 +10,7 @@ import functools
 import json
 import re
 import sys
+import warnings
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
 from pathlib import Path
@@ -365,19 +366,22 @@ class ConfigOverrideSystem:
 class ConfigArgumentParser(AutoArgumentParser):
     """AutoArgumentParser with integrated config override support."""
 
-    def __init__(self, verbose=False, *args, config_obj: Any = None, **kwargs):
+    def __init__(self, verbose=False, *args, config_obj: Any = None, strict_ambiguity: bool = False, **kwargs):
         """
         Initialize ConfigArgumentParser.
 
         Args:
             verbose: If True, print detailed information during parsing
             config_obj: Configuration object to use for overrides (required)
+            strict_ambiguity: If True, raise an error when CLI args conflict with config file.
+                            If False (default), CLI args take precedence and a warning is issued.
             *args: Positional arguments passed to AutoArgumentParser
             **kwargs: Keyword arguments passed to AutoArgumentParser
         """
         super().__init__(*args, **kwargs, allow_abbrev=False)
         self.verbose = verbose
         self.config_obj = config_obj
+        self.strict_ambiguity = strict_ambiguity
         self._config_arg_names = []
         self._config_param_mappings = {}  # Maps arg names to config paths
 
@@ -634,6 +638,9 @@ class ConfigArgumentParser(AutoArgumentParser):
         Check for conflicts between direct arguments and config overrides.
         A conflict occurs if the same config path is targeted by both a direct CLI argument
         and a --config assignment WITH A DIFFERENT VALUE.
+
+        If strict_ambiguity=True, raises an error when conflicts are detected.
+        If strict_ambiguity=False (default), issues a warning and uses CLI argument value (precedence).
         """
         if not hasattr(args, 'config') or not args.config:
             return
@@ -673,15 +680,28 @@ class ConfigArgumentParser(AutoArgumentParser):
                         # This shouldn't happen if the path is in the set, but as a safeguard:
                         continue
 
-                    # Compare the values and raise an error only if they differ
+                    # Compare the values and handle conflicts based on strict_ambiguity setting
                     if direct_arg_value != config_override_value:
                         cli_arg_name = self._get_cli_arg_name(param_name_in_func)
-                        raise ValueError(
-                            f"Conflict: The value for '{config_path_in_config_obj}' is ambiguous.\n"
-                            f"  - Direct argument '{cli_arg_name}' provides: {direct_arg_value}\n"
-                            f"  - A '--config' argument provides: {config_override_value}\n"
-                            f"Please provide only one source or ensure the values match."
-                        )
+
+                        if self.strict_ambiguity:
+                            # Strict mode: raise an error
+                            raise ValueError(
+                                f"Conflict: The value for '{config_path_in_config_obj}' is ambiguous.\n"
+                                f"  - Direct argument '{cli_arg_name}' provides: {direct_arg_value}\n"
+                                f"  - A '--config' argument provides: {config_override_value}\n"
+                                f"Please provide only one source or ensure the values match."
+                            )
+                        else:
+                            # Non-strict mode: issue a warning and use CLI argument value (precedence)
+                            warnings.warn(
+                                f"Conflict detected for '{config_path_in_config_obj}':\n"
+                                f"  - Direct argument '{cli_arg_name}' provides: {direct_arg_value}\n"
+                                f"  - '--config' argument provides: {config_override_value}\n"
+                                f"Using CLI argument value ({direct_arg_value}) as it takes precedence over config file.",
+                                UserWarning,
+                                stacklevel=2
+                            )
 
     def _was_arg_provided(self, arg_name: str, sys_argv: List[str]) -> bool:
         """

@@ -11,6 +11,7 @@ This module tests the configuration parsing and override system including:
 
 import os
 import tempfile
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, List
@@ -991,6 +992,24 @@ class TestYAMLAndKeyValueCombinations:
         assert config.batch_size == 64  # From key=val (step 2), not overridden by yaml2
         assert config.sub.value == 2  # From yaml2 (step 3)
         assert config.sub.name == "final"  # From final key=val (step 4)
+
+
+class TestStrictAmbiguity:
+    """Test strict_ambiguity parameter basic functionality."""
+
+    def test_strict_ambiguity_default_is_false(self):
+        """Test that strict_ambiguity defaults to False."""
+        config = ConfigExample()
+        parser = ConfigArgumentParser(config_obj=config, verbose=False)
+
+        assert parser.strict_ambiguity == False
+
+    def test_strict_ambiguity_can_be_set_true(self):
+        """Test that strict_ambiguity can be set to True."""
+        config = ConfigExample()
+        parser = ConfigArgumentParser(config_obj=config, verbose=False, strict_ambiguity=True)
+
+        assert parser.strict_ambiguity == True
 
 
 if __name__ == "__main__":
