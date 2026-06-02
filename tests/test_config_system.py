@@ -241,6 +241,20 @@ class TestConfigOverrideSystem:
         assert config.learning_rate == 0.005
         assert config.batch_size == 128
 
+    def test_update_config_from_file_null_optional_str(self, tmp_path):
+        """YAML null must load as Python None, not the string 'None', for Optional[str] fields."""
+        yaml_content = "optional_value: null\n"
+        yaml_file = tmp_path / "config_null.yaml"
+        yaml_file.write_text(yaml_content)
+
+        config = ConfigExample()
+        ConfigOverrideSystem.update_config_from_file(config, str(yaml_file), verbose=False)
+
+        assert config.optional_value is None, (
+            f"Expected None but got {config.optional_value!r}; "
+            "Optional[str] null should not be converted to str('None')"
+        )
+
     def test_update_config_from_configstrings(self):
         """Test updating config from config strings."""
         config = ConfigExample()

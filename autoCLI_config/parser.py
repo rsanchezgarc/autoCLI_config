@@ -257,8 +257,9 @@ class ConfigOverrideSystem:
                             # Only perform isinstance check with non-subscripted types
                             if base_field_type in (int, float, str, bool):
                                 try:
-                                    # Only convert if value is not already the correct type
-                                    if not isinstance(value, base_field_type):
+                                    # Only convert if value is not already the correct type.
+                                    # Skip None — valid for Optional fields; str(None)="None" is wrong.
+                                    if value is not None and not isinstance(value, base_field_type):
                                         value = base_field_type(value)
                                 except (ValueError, TypeError):
                                     pass  # Keep original value if conversion fails
